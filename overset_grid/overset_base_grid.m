@@ -7,11 +7,15 @@ classdef overset_base_grid < overset_grid
     
     methods
         
-        function obj = overset_base_grid(name_, ...
+        function obj = overset_base_grid(name_, id_, ...
                 nx_, ny_, ...
                 dx_, dy_) % constructor
             % call base-class constructor
-            obj@overset_grid(name_, nx_, ny_, dx_, dy_); 
+            obj@overset_grid(name_, id_, nx_, ny_, dx_, dy_); 
+        end
+        
+        function global_coords = get_global_coords(obj) % returns global coordinates of grid points
+            global_coords = obj.grid_coords;
         end
         
         function fig = display_grid(obj, fig) % plots the grid on figure img_number

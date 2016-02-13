@@ -3,9 +3,6 @@ classdef overset_sub_grid < overset_grid
 
     properties
         % also see overset_grid.m
-        
-        % general properties
-        id;     % grid id
 
         % spatial properties
         grid_velocity_lin;  % linear velocity (m/s) w.r.t. base grid
@@ -26,9 +23,7 @@ classdef overset_sub_grid < overset_grid
                 center_init_, ...
                 angle_init_) % constructor
             % call base-class constructor
-            obj@overset_grid(name_, nx_, ny_, dx_, dy_);
-            
-            obj.id = id_;
+            obj@overset_grid(name_, id_, nx_, ny_, dx_, dy_);
             obj.global_loc_of_center = center_init_;
             obj.global_angle = angle_init_;
         end
@@ -51,7 +46,6 @@ classdef overset_sub_grid < overset_grid
             global_coords = obj.get_global_coords();
             
             k = 1;
-
             for i = 1: obj.ny
                 for j = 1: obj.nx
                     y(1, k) = global_coords(i, j, 1);
