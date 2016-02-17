@@ -7,6 +7,10 @@ function [] = construct_composite_grid(grids)
 % ref: Cesshire et. al. (1990). Composite Overlapping Meshes for the 
 % Solution of Partial Differential Equations
 
+% TODO:
+% - convert to a class to improve organization
+% - add options for computing cell padding from dx, dy
+
 n_grids = size(grids, 2);
 
 % STEP 1: assign flags to n_grids
@@ -121,6 +125,9 @@ while isChanging
         % loop over all points in the grid
         for i = 1: grids{k}.ny
             for j = 1: grids{k}.nx
+                if i == 3 && j == 3 && k == 1
+                    disp('here');
+                end
                 kd = grids{k}.flag(i, j);
                 if kd ~= 0 % for all non-exterior grid points
                     isWhileLoopDone = false;
@@ -135,14 +142,15 @@ while isChanging
                                     while (l <= grids{p}.num_void_polygons) && ~isValidPoint
                                         [poly_x, poly_y] = grids{p}.get_void_polygon(l);
                                         [in, on] = inpolygon(global_coords{k}(i, j, 2), global_coords{k}(i, j, 1), poly_x, poly_y); % invalid if inside a void_polygon
-                                        isValidPoint = ~in || on;
+                                        isInVoid = in && ~on;
+                                        isValidPoint = ~isInVoid;
                                         l = l + 1;
                                     end
                                 end
                             end
                             
                             % check if on the interface
-                            if (k ~= 1)
+                            if (k ~= 1 && isValidPoint)
                                 [in, on] = inpolygon(global_coords{k}(i, j, 2), global_coords{k}(i, j, 1), polygon_x{1}, polygon_y{1});
                                 isInDomain = in && ~on;
                                 [in, on] = inpolygon(global_coords{k}(i, j, 2), global_coords{k}(i, j, 1), polygon_x{k}, polygon_y{k});
@@ -162,16 +170,21 @@ while isChanging
                             iskPointInkd = in || on;
                             if iskPointInkd  % if point in kd
                                 % check if it falls in a void
-                                iskPointInkdVoid = false;
-                                l = 1;
-                                while (l <= grids{kd}.num_void_polygons) && ~iskPointInkdVoid
-                                    [poly_x, poly_y] = grids{kd}.get_void_polygon(l);
-                                    [in, on] = inpolygon(global_coords{k}(i, j, 2), global_coords{k}(i, j, 1), poly_x, poly_y);
-                                    iskPointInkdVoid = in && ~on;
-                                    l = l + 1;
+                                isInVoid = false;
+                                for p = 1: n_grids
+                                    if grids{p}.num_void_polygons > 0
+                                        l = 1; 
+                                        while (l <= grids{p}.num_void_polygons) && ~isInVoid
+                                            [poly_x, poly_y] = grids{p}.get_void_polygon(l);
+                                            [in, on] = inpolygon(global_coords{k}(i, j, 2), global_coords{k}(i, j, 1), poly_x, poly_y); % invalid if inside a void_polygon
+                                            isInVoid = in && ~on;
+                                            l = l + 1;
+                                        end
+                                    end
                                 end
+                                isValidPoint = ~isInVoid;
                                 
-                                if iskPointInkdVoid % if in void, cannot interpolate
+                                if ~isValidPoint % if in void, cannot interpolate
                                     grids{k}.flag(i, j) = grids{k}.flag(i, j) - 1;
                                     touched = true;
                                 end
@@ -229,9 +242,10 @@ for k = 1: n_grids
                 closest_id = closest_id(1: 4);
                 closest_jd = closest_jd(1: 4);
                 
+                %grids{k}.flag(i, j) = -abs(grids{k}.flag(i, j));
                 for id = 1: 4
                     for jd = 1: 4
-                        grids{kd}.flag(closest_id(id), closest_jd(jd)) = - abs(grids{kd}.flag(closest_id(id), closest_jd(jd)));
+                        grids{kd}.flag(closest_id(id), closest_jd(jd)) = -kd;%abs(grids{kd}.flag(closest_id(id), closest_jd(jd)));
                     end
                 end
             end
@@ -239,4 +253,83 @@ for k = 1: n_grids
     end
 end
 
+% STEP 5: Remove unnecessary interpolation points, change them to
+% discretization points if possible, mark points on higher grids needed for
+% interpolation by lower grids
+
+for k = 1: n_grids
+    for i = 1: grids{k}.ny
+        for j = 1: grids{k}.nx
+            % definition of "not needed": this point could be used by
+            % another grid for interpolation, but doesn't need to be
+            kd = grids{k}.flag(i, j);
+            if kd > k
+                % check if point needs interpolation from higher grids
+                kd_bButOne_x = [global_coords{kd}(2, 2, 2) global_coords{kd}(2, end-1, 2) global_coords{kd}(end-1, end-1, 2) global_coords{kd}(end-1, 2, 2)];
+                kd_bButOne_y = [global_coords{kd}(2, 2, 1) global_coords{kd}(2, end-1, 1) global_coords{kd}(end-1, end-1, 1) global_coords{kd}(end-1, 2, 1)];
+                kd_bButTwo_x = [global_coords{kd}(3, 3, 2) global_coords{kd}(3, end-2, 2) global_coords{kd}(end-2, end-2, 2) global_coords{kd}(end-2, 3, 2)];
+                kd_bButTwo_y = [global_coords{kd}(3, 3, 1) global_coords{kd}(3, end-2, 1) global_coords{kd}(end-2, end-2, 1) global_coords{kd}(end-2, 3, 1)];
+%                 kd_bButThree_x = [global_coords{kd}(4, 4, 2) global_coords{kd}(4, end-3, 2) global_coords{kd}(end-3, end-3, 2) global_coords{kd}(end-3, 4, 2)];
+%                 kd_bButThree_y = [global_coords{kd}(4, 4, 1) global_coords{kd}(4, end-3, 1) global_coords{kd}(end-3, end-3, 1) global_coords{kd}(end-3, 4, 1)];
+                [inbB1, onbB1] = inpolygon(global_coords{k}(i, j, 2), global_coords{k}(i, j, 1), kd_bButOne_x, kd_bButOne_y);
+                [inbB2, onbB2] = inpolygon(global_coords{k}(i, j, 2), global_coords{k}(i, j, 1), kd_bButTwo_x, kd_bButTwo_y);
+                %[inbB3, onbB3] = inpolygon(global_coords{k}(i, j, 2), global_coords{k}(i, j, 1), kd_bButThree_x, kd_bButThree_y);
+                isInBButOne_kd = inbB1 || onbB1;
+                isInBButTwo_kd = inbB2 && ~onbB2;
+                %isInBButThree_kd = inbB3 && ~onbB3;
+                
+                %if isInBButOne_kd && ~isInBButThree_kd
+                if isInBButOne_kd && ~isInBButTwo_kd
+                    % find the nearest four kd points to k point
+                    k_point = [global_coords{k}(i, j, 1) global_coords{k}(i, j, 2)];
+                    closest = [inf inf inf inf inf];
+                    closest_id = [inf inf inf inf inf];
+                    closest_jd = [inf inf inf inf inf];
+                    for id = 1: grids{kd}.ny
+                        for jd = 1: grids{kd}.nx
+                            euclidean_dist = sqrt(sum(bsxfun(@minus, k_point, [global_coords{kd}(id, jd, 1) global_coords{kd}(id, jd, 2)]).^2,2));
+                            closest(5) = euclidean_dist; 
+                            closest_id(5) = id;
+                            closest_jd(5) = jd;
+
+                            [closest, permutor] = sort(closest);
+                            closest_id = closest_id(permutor);
+                            closest_jd = closest_jd(permutor);
+                        end
+                    end
+
+%                     closest = closest(1: 4);
+%                     closest_id = closest_id(1: 4);
+%                     closest_jd = closest_jd(1: 4);
+                    
+                    grids{k}.flag(i, j) = -abs(grids{k}.flag(i, j));
+                    % mark points on upper grids needed for interpolation by lower grid
+                    %for id = 1: 4
+                    %    for jd = 1: 4
+                    %        %grids{kd}.flag(closest_id(id), closest_jd(jd)) = -k;
+                    %    end
+                    %end
+                else
+                    grids{k}.flag(i, j) = 0;
+                end
+            end
+        end
+    end
+    
+    % add code for "if grids{k}.flag(i, j) can be interior point"
+
+end
+
+% STEP 6: Correct signs
+for k = 1: n_grids
+    for i = 1: grids{k}.ny
+        for j = 1: grids{k}.nx
+            if abs(grids{k}.flag(i, j)) == k % discretization point
+                grids{k}.flag(i, j) = abs(grids{k}.flag(i, j));
+            elseif abs(grids{k}.flag(i, j)) > 0 % interpolation point
+                grids{k}.flag(i, j) = -abs(grids{k}.flag(i, j));
+            end
+        end
+    end
+end
 end
