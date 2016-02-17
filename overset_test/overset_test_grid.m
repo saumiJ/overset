@@ -5,31 +5,38 @@ clc
 close all
 
 bg_id = 0;
-bg_nx = 10; bg_ny = 10;
+bg_nx = 20; bg_ny = 20;
 bg_dx = 1; bg_dy = 1;
 
 sg1_id = 1;
-sg1_nx = 5; sg1_ny = 5;
-sg1_dx = 0.5; sg1_dy = 0.5;
-sg1_center_init = [1 1];
+sg1_nx = 10; sg1_ny = 10;
+sg1_dx = 1; sg1_dy = 1;
+sg1_center_init = [10 10];
 sg1_angle_init = pi/6;
+sg1_number_of_voids = 1;
+sg1_list_voidBoundaryPointList = cell(1, sg1_number_of_voids);
+for k = 1: sg1_number_of_voids
+    sg1_list_voidBoundaryPointList{k} = [4 4 4 4 5 6 7 7 7 7 6 5;...
+                                         4 5 6 7 7 7 7 6 5 4 4 4];
+end
 
-sg2_id = 1;
-sg2_nx = 6; sg2_ny = 6;
-sg2_dx = 0.75; sg2_dy = 0.75;
-sg2_center_init = [3 3];
-sg2_angle_init = 2*pi/6;
+% sg2_id = 1;
+% sg2_nx = 6; sg2_ny = 6;
+% sg2_dx = 0.75; sg2_dy = 0.75;
+% sg2_center_init = [3 3];
+% sg2_angle_init = 2*pi/6;
 
-oBG = overset_base_grid('T_b', bg_id, bg_nx, bg_ny, bg_dx, bg_dy);
-oSG1 = overset_sub_grid('T_sub1', sg1_id, sg1_nx, sg1_ny, sg1_dx, sg1_dy, sg1_center_init, sg1_angle_init);
-oSG2 = overset_sub_grid('T_sub2', sg2_id, sg2_nx, sg2_ny, sg2_dx, sg2_dy, sg2_center_init, sg2_angle_init);
+oBG = overset_base_grid('T_b', bg_id, bg_nx, bg_ny, bg_dx, bg_dy, {});
+oSG1 = overset_sub_grid('T_sub1', sg1_id, sg1_nx, sg1_ny, sg1_dx, sg1_dy, sg1_list_voidBoundaryPointList, sg1_center_init, sg1_angle_init);
+% oSG2 = overset_sub_grid('T_sub2', sg2_id, sg2_nx, sg2_ny, sg2_dx, sg2_dy, sg2_center_init, sg2_angle_init);
 
 fig_grid = figure();
 oBG.display_grid(fig_grid);
 oSG1.display_grid(fig_grid);
-oSG2.display_grid(fig_grid);
+% oSG2.display_grid(fig_grid);
 
-construct_composite_grid({oBG, oSG1, oSG2});
+construct_composite_grid({oBG, oSG1});
+% construct_composite_grid({oBG, oSG1, oSG2});
 
 isWorking = 1;
 end

@@ -13,6 +13,9 @@ classdef overset_grid
         % data properties
         val;        % data
         flag;  % is grid point active?
+        isVoidBoundary;
+        num_void_polygons;
+        void_polygons;
 
         % spatial properties
         grid_center;        % mid-point of grid
@@ -24,7 +27,8 @@ classdef overset_grid
         function obj = overset_grid(name_, ...
                 id_, ...
                 nx_, ny_, ...
-                dx_, dy_ ...
+                dx_, dy_ ,...
+                list_voidBoundaryPointList_ ...
                 ) % constructor
             obj.name = name_;
             obj.id = id_;
@@ -32,13 +36,25 @@ classdef overset_grid
             obj.dx = dx_; obj.dy = dy_;
             
             obj.val = zeros(obj.ny, obj.nx); 
-            obj.flag = -ones(obj.ny, obj.nx);
+            obj.flag = -0.001*ones(obj.ny, obj.nx); % assign an invalid value
+            obj.isVoidBoundary = zeros(obj.ny, obj.nx); % no voids by default
             obj.grid_center = [((obj.ny-1) * obj.dx)/2 ((obj.nx-1) * obj.dy)/2];
             obj.grid_coords = zeros(obj.ny, obj.nx, 2);
+            
             for i = 1: obj.ny
                 for j = 1: obj.nx
                     obj.grid_coords(i, j, 1) = (i-1)*obj.dy;
                     obj.grid_coords(i, j, 2) = (j-1)*obj.dx;
+                end
+            end
+            
+            obj.num_void_polygons = length(list_voidBoundaryPointList_);
+            obj.void_polygons = cell(length(list_voidBoundaryPointList_));
+            for k = 1: obj.num_void_polygons
+                obj.void_polygons{k} = list_voidBoundaryPointList_{k};
+                for l = 1: size(list_voidBoundaryPointList_{k}, 2)
+                    obj.isVoidBoundary(list_voidBoundaryPointList_{k}(1, l), ...
+                        list_voidBoundaryPointList_{k}(2, l)) = true;
                 end
             end
             

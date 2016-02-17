@@ -20,10 +20,11 @@ classdef overset_sub_grid < overset_grid
                 id_, ...
                 nx_, ny_, ...
                 dx_, dy_, ...
+                sg1_list_voidBoundaryPointList_, ...
                 center_init_, ...
                 angle_init_) % constructor
             % call base-class constructor
-            obj@overset_grid(name_, id_, nx_, ny_, dx_, dy_);
+            obj@overset_grid(name_, id_, nx_, ny_, dx_, dy_, sg1_list_voidBoundaryPointList_);
             obj.global_loc_of_center = center_init_;
             obj.global_angle = angle_init_;
         end
@@ -35,6 +36,17 @@ classdef overset_sub_grid < overset_grid
             
             global_coords(:, :, 1) = obj.global_loc_of_center(1, 1) + (dist_to_ctr_y(:, :) * cos(-obj.global_angle) - dist_to_ctr_x(:, :) * sin(-obj.global_angle));
             global_coords(:, :, 2) = obj.global_loc_of_center(1, 2) + (dist_to_ctr_x(:, :) * cos(-obj.global_angle) + dist_to_ctr_y(:, :) * sin(-obj.global_angle));
+        end
+        
+        function [poly_x, poly_y] = get_void_polygon(obj, k)
+            poly_x = zeros(1, size(obj.void_polygons{k}, 2));
+            poly_y = zeros(1, size(obj.void_polygons{k}, 2));
+            for l = 1: size(obj.void_polygons{k}, 2)
+                dist_to_ctr_y = obj.dy*(obj.void_polygons{k}(1, l) - 1) - obj.grid_center(1, 1);
+                dist_to_ctr_x = obj.dx*(obj.void_polygons{k}(2, l) - 1) - obj.grid_center(1, 2);
+                poly_x(l) = obj.global_loc_of_center(1, 2) + (dist_to_ctr_x(:, :) * cos(-obj.global_angle) + dist_to_ctr_y(:, :) * sin(-obj.global_angle));
+                poly_y(l) = obj.global_loc_of_center(1, 1) + (dist_to_ctr_y(:, :) * cos(-obj.global_angle) - dist_to_ctr_x(:, :) * sin(-obj.global_angle));
+            end
         end
         
         function fig = display_grid(obj, fig) % plots the grid on figure img_number
@@ -57,6 +69,6 @@ classdef overset_sub_grid < overset_grid
             scatter(x, y, 12);
             hold off;
         end
-        
+                
     end
 end
