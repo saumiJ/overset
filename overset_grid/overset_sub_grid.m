@@ -60,9 +60,11 @@ classdef overset_sub_grid < overset_grid
             k = 1;
             for i = 1: obj.ny
                 for j = 1: obj.nx
-                    y(1, k) = global_coords(i, j, 1);
-                    x(1, k) = global_coords(i, j, 2);
-                    k = k + 1;
+                    if ~obj.isVoidBoundary(i, j) && obj.flag(i, j) ~= 0
+                        y(1, k) = global_coords(i, j, 1);
+                        x(1, k) = global_coords(i, j, 2);
+                        k = k + 1;
+                    end
                 end
             end
             

@@ -1,4 +1,4 @@
-classdef overset_grid
+classdef overset_grid < handle
 % parent class for overset grids
     properties
 

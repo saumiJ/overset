@@ -21,27 +21,13 @@ end
 % STEP 2: eliminate non-boundary points close to boundary points of other grids
 
 % repeatedly needed quantities
-boundary_indices_i = cell(n_grids, 1);
-boundary_indices_j = cell(n_grids, 1);
-boundaryButOne_indices_i = cell(n_grids, 1);
-boundaryButOne_indices_j = cell(n_grids, 1);
 voidBoundary_indices_i = cell(n_grids, 1);
 voidBoundary_indices_j = cell(n_grids, 1);
 polygon_x = cell(n_grids, 1);
 polygon_y = cell(n_grids, 1);
 global_coords = cell(n_grids, 1);
 for k = 1: n_grids
-    % get boundary indices
-    boundary_indices_i{k} = [ones(1, grids{k}.nx-1) ...
-        1: grids{k}.ny-1 ...
-        grids{k}.ny*ones(1, grids{k}.nx-1) ...
-        grids{k}.nx: -1: 2];
-    
-    boundary_indices_j{k} = [1: grids{k}.nx-1 ...
-        grids{k}.nx*ones(1, grids{k}.ny-1) ...
-        grids{k}.ny: -1: 2 ...
-        ones(1, grids{k}.ny-1)];
-    
+    % get void-boundary indices
     voidBoundary_indices_i{k} = [];
     voidBoundary_indices_j{k} = [];
     for i = 1: grids{k}.ny
@@ -52,17 +38,7 @@ for k = 1: n_grids
             end
         end
     end
-    % get boundary-but-one indices
-    boundaryButOne_indices_i{k} = [2*ones(1, grids{k}.nx-3) ...
-        2: grids{k}.ny-3 ...
-        (grids{k}.ny-1)*ones(1, grids{k}.nx-3) ...
-        grids{k}.nx-1: -1: 3];
     
-    boundaryButOne_indices_j{k} = [2: grids{k}.nx-3 ...
-        (grids{k}.nx-1)*ones(1, grids{k}.ny-3) ...
-        grids{k}.ny-1: -1: 3 ...
-        2*ones(1, grids{k}.ny-3)];
-        
     % global coords for grid k
     global_coords{k} = grids{k}.get_global_coords();
     
@@ -89,15 +65,15 @@ for k = 1: n_grids
                 k_voidBoundary_points(l, 2) = global_coords{k}(voidBoundary_indices_i{k}(l), voidBoundary_indices_j{k}(l), 2);
             end
             
-            % check which boundary points of k lie in kd
-            is_point_in_kd = inpolygon(k_voidBoundary_points(:, 2), k_voidBoundary_points(:, 1), polygon_x{kd}, polygon_y{kd});
-            pick_points_at = find(is_point_in_kd==1);
-            voidBoundary_indices_i_in_kd = zeros(1, length(pick_points_at));
-            voidBoundary_indices_j_in_kd = zeros(1, length(pick_points_at));
-            for l = 1: length(pick_points_at)
-                voidBoundary_indices_i_in_kd(l) = boundary_indices_i{k}(pick_points_at(l));
-                voidBoundary_indices_j_in_kd(l) = boundary_indices_j{k}(pick_points_at(l));
-            end
+%             % check which boundary points of k lie in kd
+%             is_point_in_kd = inpolygon(k_voidBoundary_points(:, 2), k_voidBoundary_points(:, 1), polygon_x{kd}, polygon_y{kd});
+%             pick_points_at = find(is_point_in_kd==1);
+%             voidBoundary_indices_i_in_kd = zeros(1, length(pick_points_at));
+%             voidBoundary_indices_j_in_kd = zeros(1, length(pick_points_at));
+%             for l = 1: length(pick_points_at)
+%                 voidBoundary_indices_i_in_kd(l) = boundary_indices_i{k}(pick_points_at(l));
+%                 voidBoundary_indices_j_in_kd(l) = boundary_indices_j{k}(pick_points_at(l));
+%             end
 
             % loop over kd-points, find distances between
             % this and k-voidBoundary pts
@@ -123,7 +99,7 @@ for k = 1: n_grids
                             end
                         end
                     end
-                    % if closer to void-boundary, set that point's flag to 0
+                    % if closer to void-boundary, set that kd-point's flag to 0
                     if found
                         grids{kd}.flag(min_dist_indices(1, 1), min_dist_indices(1, 2)) = 0;
                     end
@@ -139,7 +115,10 @@ isChanging = true;
 % loop while atleast one flag changes
 while isChanging
     isChanging = false;
+    touched = false;
+    % loop over grids
     for k = 1: n_grids
+        % loop over all points in the grid
         for i = 1: grids{k}.ny
             for j = 1: grids{k}.nx
                 kd = grids{k}.flag(i, j);
@@ -155,43 +134,104 @@ while isChanging
                                     l = 1; 
                                     while (l <= grids{p}.num_void_polygons) && ~isValidPoint
                                         [poly_x, poly_y] = grids{p}.get_void_polygon(l);
-                                        isValidPoint = ~inpolygon(global_coords{k}(i, j, 2), global_coords{k}(i, j, 1), poly_x, poly_y);
+                                        [in, on] = inpolygon(global_coords{k}(i, j, 2), global_coords{k}(i, j, 1), poly_x, poly_y); % invalid if inside a void_polygon
+                                        isValidPoint = ~in || on;
                                         l = l + 1;
                                     end
                                 end
                             end
+                            
+                            % check if on the interface
+                            if (k ~= 1)
+                                [in, on] = inpolygon(global_coords{k}(i, j, 2), global_coords{k}(i, j, 1), polygon_x{1}, polygon_y{1});
+                                isInDomain = in && ~on;
+                                [in, on] = inpolygon(global_coords{k}(i, j, 2), global_coords{k}(i, j, 1), polygon_x{k}, polygon_y{k});
+                                isOnInterface = isInDomain && in && on;
+                                isValidPoint = ~isOnInterface;
+                            end
+                            
                             if ~isValidPoint
                                 grids{k}.flag(i, j) = grids{k}.flag(i, j) - 1;
-                                isChanging = true;
+                                touched = true;
                             end
                         else
                             % check if point can be interpolated from kd grid
                             % TODO: linear interpolation for now. Extend to
                             % arbitrary order of interpolation
-                            iskPointInkd = inpolygon(global_coords{k}(i, j, 2), global_coords{k}(i, j, 1), polygon_x{kd}, polygon_y{kd});
+                            [in, on] = inpolygon(global_coords{k}(i, j, 2), global_coords{k}(i, j, 1), polygon_x{kd}, polygon_y{kd});
+                            iskPointInkd = in || on;
                             if iskPointInkd  % if point in kd
                                 % check if it falls in a void
                                 iskPointInkdVoid = false;
                                 l = 1;
-                                while (l <= grids{kd}.num_void_polygons)
+                                while (l <= grids{kd}.num_void_polygons) && ~iskPointInkdVoid
                                     [poly_x, poly_y] = grids{kd}.get_void_polygon(l);
-                                    iskPointInkdVoid = inpolygon(global_coords{k}(i, j, 2), global_coords{k}(i, j, 1), poly_x, poly_y);
+                                    [in, on] = inpolygon(global_coords{k}(i, j, 2), global_coords{k}(i, j, 1), poly_x, poly_y);
+                                    iskPointInkdVoid = in && ~on;
                                     l = l + 1;
                                 end
+                                
                                 if iskPointInkdVoid % if in void, cannot interpolate
                                     grids{k}.flag(i, j) = grids{k}.flag(i, j) - 1;
-                                    isChanging = true;
+                                    touched = true;
                                 end
                             else % if point cannot be interpolated from kd grid
                                 grids{k}.flag(i, j) = grids{k}.flag(i, j) - 1;
-                                isChanging = true;
+                                touched = true;
                             end
                         end
                         kd = kd - 1;
                         if kd == 0 || isValidPoint
                             isWhileLoopDone = true;
-                            isChanging = false;
+                            if ~touched
+                                isChanging = false;
+                            else
+                                isChanging = true;
+                            end
                         end
+                    end
+                end
+            end
+        end
+    end
+end
+
+% STEP 4: Find points on lower grids DEFINITELY needed for interpolation by
+% higher grids
+
+for k = 1: n_grids
+    for i = 1: grids{k}.ny
+        for j = 1: grids{k}.nx
+            kd = grids{k}.flag(i, j);
+            if kd < k && kd > 0 % if i, j, k interpolates from kd grid
+                % assuming linear interpolation
+                % TODO: provide arbitrary interpolation order
+                
+                % find the nearest four kd points to k point
+                k_point = [global_coords{k}(i, j, 1) global_coords{k}(i, j, 2)];
+                closest = [inf inf inf inf inf];
+                closest_id = [inf inf inf inf inf];
+                closest_jd = [inf inf inf inf inf];
+                for id = 1: grids{kd}.ny
+                    for jd = 1: grids{kd}.nx
+                        euclidean_dist = sqrt(sum(bsxfun(@minus, k_point, [global_coords{kd}(id, jd, 1) global_coords{kd}(id, jd, 2)]).^2,2));
+                        closest(5) = euclidean_dist; 
+                        closest_id(5) = id;
+                        closest_jd(5) = jd;
+                        
+                        [closest, permutor] = sort(closest);
+                        closest_id = closest_id(permutor);
+                        closest_jd = closest_jd(permutor);
+                    end
+                end
+                
+                closest = closest(1: 4);
+                closest_id = closest_id(1: 4);
+                closest_jd = closest_jd(1: 4);
+                
+                for id = 1: 4
+                    for jd = 1: 4
+                        grids{kd}.flag(closest_id(id), closest_jd(jd)) = - abs(grids{kd}.flag(closest_id(id), closest_jd(jd)));
                     end
                 end
             end
