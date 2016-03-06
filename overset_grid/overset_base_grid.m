@@ -11,6 +11,7 @@ classdef overset_base_grid < overset_grid
                 nx_, ny_, ...
                 dx_, dy_, ...
                 sg1_list_voidBoundaryPointList_) % constructor
+            disp(strcat('overset: constructing base grid ', name_));
             % call base-class constructor
             obj@overset_grid(name_, id_, nx_, ny_, dx_, dy_, sg1_list_voidBoundaryPointList_); 
         end
@@ -46,6 +47,7 @@ classdef overset_base_grid < overset_grid
                 end
             end
             
+            disp(strcat('overset: printing base grid ', obj.name));
             scatter(x, y, 12, 'filled');
             hold off;
         end

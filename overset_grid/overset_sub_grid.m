@@ -23,6 +23,7 @@ classdef overset_sub_grid < overset_grid
                 sg1_list_voidBoundaryPointList_, ...
                 center_init_, ...
                 angle_init_) % constructor
+            disp(strcat('overset: constructing sub grid ', name_));
             % call base-class constructor
             obj@overset_grid(name_, id_, nx_, ny_, dx_, dy_, sg1_list_voidBoundaryPointList_);
             obj.global_loc_of_center = center_init_;
@@ -68,6 +69,7 @@ classdef overset_sub_grid < overset_grid
                 end
             end
             
+            disp(strcat('overset: printing sub grid ', obj.name));
             scatter(x, y, 12);
             hold off;
         end
