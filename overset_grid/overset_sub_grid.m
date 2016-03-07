@@ -63,7 +63,7 @@ classdef overset_sub_grid < overset_grid
             end
         end
         
-        % plots the grid on figure img_number
+        % plots the grid on figure fig
         function fig = display_grid(obj, fig)
             figure(fig);
             hold on
@@ -86,6 +86,35 @@ classdef overset_sub_grid < overset_grid
             disp(strcat('overset: printing sub grid ', obj.name));
             scatter(x, y, 12);
             hold off;
+        end
+        
+        % displays data as a contour on figure fig
+        function [] = display_data(obj, fig)
+            figure(fig);
+            hold on
+            y = zeros(1, obj.ny * obj.nx);
+            x = zeros(1, obj.ny * obj.nx);
+            data = zeros(1, obj.ny * obj.nx);
+            
+            global_coords = obj.get_global_coords();
+            
+            k = 1;
+            for i = 1: obj.ny
+                for j = 1: obj.nx
+                    if ~obj.isVoidBoundary(i, j) && obj.flag(i, j) == obj.id+1
+                    %if ~obj.isVoidBoundary(i, j) && obj.flag(i, j) ~= 0
+                        y(1, k) = global_coords(i, j, 1);
+                        x(1, k) = global_coords(i, j, 2);
+                        data(1, k) = obj.val(i, j);
+                        k = k + 1;
+                    end
+                end
+            end
+            
+            disp(strcat('overset: printing data on sub grid ', obj.name));
+            scatter3(x, y, data, 20, data);
+            
+            hold off
         end
                 
     end

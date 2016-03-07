@@ -61,6 +61,9 @@ oCG.interpolate();
 fig_grid = figure();
 oCG.display_grid(fig_grid);
 
+% print data
+fig_data = figure();
+oCG.display_data(fig_data);
 
 isWorking = 1;
 end
