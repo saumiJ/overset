@@ -12,7 +12,8 @@ classdef overset_composite_grid < handle
     end
     
     methods
-        function obj = overset_composite_grid(name_, grids_) % constructor
+        % constructor
+        function obj = overset_composite_grid(name_, grids_)
             if length(grids_) < 2
                 disp 'ERROR: At least two grids needed to construct a composite grid!'
                 exit(1)
@@ -31,6 +32,7 @@ classdef overset_composite_grid < handle
             obj.construct_composite_grid();
         end
         
+        % create grid associations and cuts
         function [] = construct_composite_grid(obj)
         % constructs composite grid from 'grids'
         % note: 'grids' must be arranged such that the farthest one will be the
@@ -374,13 +376,7 @@ classdef overset_composite_grid < handle
         end
         end
         
-        function [] = display_grid(obj, fig)
-            disp(strcat('overset: printing composite grid ', obj.name));
-            for k = 1: obj.n_grids
-                obj.grids{k}.display_grid(fig);
-            end            
-        end
-        
+        % compute interpolated values at grids
         function [] = interpolate(obj)
             for k = 1: obj.n_grids
                 disp(strcat('overset: interpolating at grid ', obj.grids{k}.name));
@@ -401,6 +397,14 @@ classdef overset_composite_grid < handle
                     obj.grids{k}.val(interp_point_ids{:}(1), interp_point_ids{:}(2)) = interp_val;
                 end
             end
+        end
+        
+        % display grid
+        function [] = display_grid(obj, fig)
+            disp(strcat('overset: printing composite grid ', obj.name));
+            for k = 1: obj.n_grids
+                obj.grids{k}.display_grid(fig);
+            end            
         end
         
     end
