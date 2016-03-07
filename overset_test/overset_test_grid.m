@@ -23,7 +23,7 @@ for k = 1: sg1_number_of_voids
 end
 
 % sub-grid-2 params
-sg2_id = 1;
+sg2_id = 2;
 sg2_nx = 8; sg2_ny = 8;
 sg2_dx = 1; sg2_dy = 1;
 sg2_center_init = [8 8];
@@ -52,7 +52,8 @@ else if n_grids == 3
 end
 
 % create composite grid
-oCG = overset_composite_grid('T_comp', grids);
+overlap = 1;
+oCG = overset_composite_grid('T_comp', grids, overlap);
 
 % interpolate values
 oCG.interpolate();

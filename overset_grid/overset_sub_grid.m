@@ -98,21 +98,25 @@ classdef overset_sub_grid < overset_grid
             
             global_coords = obj.get_global_coords();
             
-            k = 1;
+            l = 1;
             for i = 1: obj.ny
                 for j = 1: obj.nx
                     if ~obj.isVoidBoundary(i, j) && obj.flag(i, j) == obj.id+1
                     %if ~obj.isVoidBoundary(i, j) && obj.flag(i, j) ~= 0
-                        y(1, k) = global_coords(i, j, 1);
-                        x(1, k) = global_coords(i, j, 2);
-                        data(1, k) = obj.val(i, j);
-                        k = k + 1;
+                        y(1, l) = global_coords(i, j, 1);
+                        x(1, l) = global_coords(i, j, 2);
+                        data(1, l) = obj.val(i, j);
+                        l = l + 1;
                     end
                 end
             end
             
             disp(strcat('overset: printing data on sub grid ', obj.name));
-            scatter3(x, y, data, 20, data);
+            if (obj.id == 1)
+                scatter3(x, y, data, 20, data, 'o');
+            else
+                scatter3(x, y, data, 20, data, '+');
+            end
             
             hold off
         end

@@ -8,12 +8,13 @@ classdef overset_composite_grid < handle
         % data properties
         grids % array of grids
         n_grids; % number of grids
+        cell_after_overlap; % first cell after overlap
     
     end
     
     methods
         % constructor
-        function obj = overset_composite_grid(name_, grids_)
+        function obj = overset_composite_grid(name_, grids_, overlap_)
             if length(grids_) < 2
                 disp 'ERROR: At least two grids needed to construct a composite grid!'
                 exit(1)
@@ -28,6 +29,7 @@ classdef overset_composite_grid < handle
             obj.name = name_;
             obj.grids = grids_;
             obj.n_grids = length(grids_);
+            obj.cell_after_overlap = overlap_ + 1;
             
             obj.construct_composite_grid();
         end
@@ -63,6 +65,10 @@ classdef overset_composite_grid < handle
             % repeatedly needed quantities
             polygon_x = cell(obj.n_grids, 1);
             polygon_y = cell(obj.n_grids, 1);
+            polygon_but1_x = cell(obj.n_grids, 1);
+            polygon_but1_y = cell(obj.n_grids, 1);
+            polygon_but2_x = cell(obj.n_grids, 1);
+            polygon_but2_y = cell(obj.n_grids, 1);
             global_coords = cell(obj.n_grids, 1);
             voidBoundary_points = cell(obj.n_grids, 1);
             for k = 1: obj.n_grids
@@ -90,6 +96,26 @@ classdef overset_composite_grid < handle
                             global_coords{k}(1, end, 1) ...
                             global_coords{k}(end, end, 1) ...
                             global_coords{k}(end, 1, 1)];
+                        
+                polygon_but1_x{k} = [global_coords{k}(obj.cell_after_overlap,       obj.cell_after_overlap, 2) ...
+                                     global_coords{k}(obj.cell_after_overlap,       end-obj.cell_after_overlap+1, 2) ...
+                                     global_coords{k}(end-obj.cell_after_overlap+1, end-obj.cell_after_overlap+1, 2) ...
+                                     global_coords{k}(end-obj.cell_after_overlap+1, obj.cell_after_overlap, 2)];
+                        
+                polygon_but1_y{k} = [global_coords{k}(obj.cell_after_overlap,       obj.cell_after_overlap, 1) ...
+                                     global_coords{k}(obj.cell_after_overlap,       end-obj.cell_after_overlap+1, 1) ...
+                                     global_coords{k}(end-obj.cell_after_overlap+1, end-obj.cell_after_overlap+1, 1) ...
+                                     global_coords{k}(end-obj.cell_after_overlap+1, obj.cell_after_overlap, 1)];
+                        
+                polygon_but2_x{k} = [global_coords{k}(obj.cell_after_overlap+1,     obj.cell_after_overlap+1, 2) ...
+                                     global_coords{k}(obj.cell_after_overlap+1,     end-obj.cell_after_overlap, 2) ...
+                                     global_coords{k}(end-obj.cell_after_overlap,   end-obj.cell_after_overlap, 2) ...
+                                     global_coords{k}(end-obj.cell_after_overlap,   obj.cell_after_overlap+1, 2)];
+                        
+                polygon_but2_y{k} = [global_coords{k}(obj.cell_after_overlap+1,     obj.cell_after_overlap+1, 1) ...
+                                     global_coords{k}(obj.cell_after_overlap+1,     end-obj.cell_after_overlap, 1) ...
+                                     global_coords{k}(end-obj.cell_after_overlap,   end-obj.cell_after_overlap, 1) ...
+                                     global_coords{k}(end-obj.cell_after_overlap,   obj.cell_after_overlap+1, 1)];
             end
 
             for k = 1: obj.n_grids
@@ -196,8 +222,12 @@ classdef overset_composite_grid < handle
                                                 end
                                             end
                                             isValidPoint = ~isInVoid;
+                                            
+                                            % check if it needs a kd_boundary point for interpolation
+                                            [in, on] = inpolygon(global_coords{k}(i, j, 2), global_coords{k}(i, j, 1), polygon_but1_x{kd}, polygon_but1_y{kd});
+                                            isInBut1kd = in || on;
 
-                                            if ~isValidPoint % if in void, cannot interpolate
+                                            if ~isValidPoint || ~isInBut1kd % if in void, or if needs kd boundary point, cannot interpolate
                                                 obj.grids{k}.flag(i, j) = obj.grids{k}.flag(i, j) - 1;
                                                 touched = true;
                                             end
@@ -243,6 +273,9 @@ classdef overset_composite_grid < handle
                             closest_jd = [inf inf inf inf inf];
                             for id = 1: obj.grids{kd}.ny
                                 for jd = 1: obj.grids{kd}.nx
+                                    %if id == 12 && jd == 8 && i == 8 && j == 7 && k == 3
+                                    %    disp 'DEBUG!'
+                                    %end
                                     euclidean_dist = sqrt(sum(bsxfun(@minus, k_point, [global_coords{kd}(id, jd, 1) global_coords{kd}(id, jd, 2)]).^2,2));
                                     closest(5) = euclidean_dist; 
                                     closest_id(5) = id;
@@ -265,7 +298,7 @@ classdef overset_composite_grid < handle
                             k_interp_points{k_interp_point_count} = [i j];
                             source_ids = zeros(4, 2);
                             for l = 1: 4
-                                obj.grids{kd}.flag(closest_id(l), closest_jd(l)) = -kd;
+                                obj.grids{kd}.flag(closest_id(l), closest_jd(l)) = -abs(obj.grids{kd}.flag(closest_id(l), closest_jd(l)));
                                 source_ids(l, :) = [closest_id(l) closest_jd(l)];
                             end
                             k_interp_source_ids{k_interp_point_count} = source_ids;
@@ -289,18 +322,12 @@ classdef overset_composite_grid < handle
                     for j = 1: obj.grids{k}.nx
                         % definition of "not needed": this point could be used by
                         % another grid for interpolation, but doesn't need to be
-                        kd = obj.grids{k}.flag(i, j);
+                        kd = abs(obj.grids{k}.flag(i, j));
                         if kd > k
                             % check if point needs interpolation from higher grids
-                            kd_bButOne_x = [global_coords{kd}(2, 2, 2) global_coords{kd}(2, end-1, 2) global_coords{kd}(end-1, end-1, 2) global_coords{kd}(end-1, 2, 2)];
-                            kd_bButOne_y = [global_coords{kd}(2, 2, 1) global_coords{kd}(2, end-1, 1) global_coords{kd}(end-1, end-1, 1) global_coords{kd}(end-1, 2, 1)];
-                            kd_bButTwo_x = [global_coords{kd}(3, 3, 2) global_coords{kd}(3, end-2, 2) global_coords{kd}(end-2, end-2, 2) global_coords{kd}(end-2, 3, 2)];
-                            kd_bButTwo_y = [global_coords{kd}(3, 3, 1) global_coords{kd}(3, end-2, 1) global_coords{kd}(end-2, end-2, 1) global_coords{kd}(end-2, 3, 1)];
-            %                 kd_bButThree_x = [global_coords{kd}(4, 4, 2) global_coords{kd}(4, end-3, 2) global_coords{kd}(end-3, end-3, 2) global_coords{kd}(end-3, 4, 2)];
-            %                 kd_bButThree_y = [global_coords{kd}(4, 4, 1) global_coords{kd}(4, end-3, 1) global_coords{kd}(end-3, end-3, 1) global_coords{kd}(end-3, 4, 1)];
-                            [inbB1, onbB1] = inpolygon(global_coords{k}(i, j, 2), global_coords{k}(i, j, 1), kd_bButOne_x, kd_bButOne_y);
-                            [inbB2, onbB2] = inpolygon(global_coords{k}(i, j, 2), global_coords{k}(i, j, 1), kd_bButTwo_x, kd_bButTwo_y);
-                            %[inbB3, onbB3] = inpolygon(global_coords{k}(i, j, 2), global_coords{k}(i, j, 1), kd_bButThree_x, kd_bButThree_y);
+                            [inbB1, onbB1] = inpolygon(global_coords{k}(i, j, 2), global_coords{k}(i, j, 1), polygon_but1_x{kd}, polygon_but1_y{kd});
+                            [inbB2, onbB2] = inpolygon(global_coords{k}(i, j, 2), global_coords{k}(i, j, 1), polygon_but2_x{kd}, polygon_but2_y{kd});
+                            %[inbB3, onbB3] = inpolygon(global_coords{k}(i, j, 2), global_coords{k}(i, j, 1), polygon_but3_x{kd}, polygon_but3_y{kd});
                             isInBButOne_kd = inbB1 || onbB1;
                             isInBButTwo_kd = inbB2 && ~onbB2;
                             %isInBButThree_kd = inbB3 && ~onbB3;
@@ -336,6 +363,7 @@ classdef overset_composite_grid < handle
                                 k_interp_points{k_interp_point_count} = [i j];
                                 source_ids = zeros(4, 2);
                                 for l = 1: 4
+                                    obj.grids{kd}.flag(closest_id(l), closest_jd(l)) = -abs(obj.grids{kd}.flag(closest_id(l), closest_jd(l)));
                                     source_ids(l, :) = [closest_id(l) closest_jd(l)];
                                 end
                                 k_interp_source_ids{k_interp_point_count} = source_ids;
@@ -388,6 +416,7 @@ classdef overset_composite_grid < handle
                     
                     source_coords = zeros(4, 2);
                     source_vals = zeros(4, 1);
+
                     for j = 1: 4
                         source_coords(j, :) = obj.grids{interp_kd}.get_global_coords_at(interp_source_ids{:}(j, 1), interp_source_ids{:}(j, 2));
                         source_vals(j) = obj.grids{interp_kd}.val(interp_source_ids{:}(j, 1), interp_source_ids{:}(j, 2));
