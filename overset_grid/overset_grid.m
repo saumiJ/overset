@@ -20,16 +20,22 @@ classdef overset_grid < handle
         % spatial properties
         grid_center;        % mid-point of grid
         grid_coords;        % local coords of grid
+        
+        % interpolation points details
+        interp_point_count
+        interp_points % indices
+        interp_source_ids
     
     end
     
     methods
+        % constructor
         function obj = overset_grid(name_, ...
                 id_, ...
                 nx_, ny_, ...
                 dx_, dy_ ,...
                 list_voidBoundaryPointList_ ...
-                ) % constructor
+                )
             obj.name = name_;
             obj.id = id_;
             obj.nx = nx_; obj.ny = ny_;

@@ -43,6 +43,7 @@ classdef overset_composite_grid < handle
         % TODO:
         % - add options for computing cell padding from dx, dy
         % - optimize performance
+        % - avoid copying global_coords
 
         obj.n_grids = size(obj.grids, 2);
 
@@ -58,21 +59,19 @@ classdef overset_composite_grid < handle
         % STEP 2: eliminate non-boundary points close to boundary points of other grids
 
         % repeatedly needed quantities
-        voidBoundary_indices_i = cell(obj.n_grids, 1);
-        voidBoundary_indices_j = cell(obj.n_grids, 1);
         polygon_x = cell(obj.n_grids, 1);
         polygon_y = cell(obj.n_grids, 1);
         global_coords = cell(obj.n_grids, 1);
+        voidBoundary_points = cell(obj.n_grids, 1);
         for k = 1: obj.n_grids
-            % get void-boundary indices
-            voidBoundary_indices_i{k} = [];
-            voidBoundary_indices_j{k} = [];
-            for i = 1: obj.grids{k}.ny
-                for j = 1: obj.grids{k}.nx
-                    if obj.grids{k}.isVoidBoundary(i, j) == 1
-                        voidBoundary_indices_i{k} = [voidBoundary_indices_i{k} i];
-                        voidBoundary_indices_j{k} = [voidBoundary_indices_j{k} j];
-                    end
+            % get void-boundary points
+            voidBoundary_points{k} = [];
+            for i = 1: obj.grids{k}.num_void_polygons
+                for j = 1: length(obj.grids{k}.void_polygons{i})
+                    void_i = obj.grids{k}.void_polygons{i}(1, j);
+                    void_j = obj.grids{k}.void_polygons{i}(2, j);
+                    point = obj.grids{k}.get_global_coords_at(void_i, void_j);
+                    voidBoundary_points{k} = [voidBoundary_points{k}; point];
                 end
             end
 
@@ -94,30 +93,22 @@ classdef overset_composite_grid < handle
         for k = 1: obj.n_grids
             for kd = 1: obj.n_grids
                 if kd ~= k
-
-                    % make a list of void-boundary points in k
-                    k_voidBoundary_points = zeros(length(voidBoundary_indices_i{k}), 2);
-                    for l = 1: length(voidBoundary_indices_i{k})
-                        k_voidBoundary_points(l, 1) = global_coords{k}(voidBoundary_indices_i{k}(l), voidBoundary_indices_j{k}(l), 1);
-                        k_voidBoundary_points(l, 2) = global_coords{k}(voidBoundary_indices_i{k}(l), voidBoundary_indices_j{k}(l), 2);
-                    end
-
                     % loop over kd-points, find distances between
                     % this and k-voidBoundary pts
-                    if ~isempty(k_voidBoundary_points)
-                        for l = 1: length(k_voidBoundary_points)
+                    if ~isempty(voidBoundary_points{k})
+                        for l = 1: length(voidBoundary_points{k})
                             min_dist_indices = []; min_euclidean_dist = []; found = false;
                             for i = 1: obj.grids{kd}.ny
                                 for j = 1: obj.grids{kd}.nx
                                     kd_point_to_check = [global_coords{kd}(i, j, 1) global_coords{kd}(i, j, 2)];
-                                    manhattan_dist = abs(kd_point_to_check(1, :) - k_voidBoundary_points(l, :));
+                                    manhattan_dist = abs(kd_point_to_check(1, :) - voidBoundary_points{k}(l, :));
                                     if (manhattan_dist(1) < obj.grids{kd}.dy/2) && (manhattan_dist(2) < obj.grids{kd}.dx/2)
-                                        if found == false
+                                        if ~found
                                             min_dist_indices = [i j];
-                                            min_euclidean_dist = sqrt(sum(bsxfun(@minus, kd_point_to_check, k_voidBoundary_points(l, :)).^2,2));
+                                            min_euclidean_dist = sqrt(sum(bsxfun(@minus, kd_point_to_check, voidBoundary_points{k}(l, :)).^2,2));
                                             found = true;
                                         else
-                                            euclidean_dist = sqrt(sum(bsxfun(@minus, kd_point_to_check, k_voidBoundary_points(l, :)).^2,2));
+                                            euclidean_dist = sqrt(sum(bsxfun(@minus, kd_point_to_check, voidBoundary_points{k}(l, :)).^2,2));
                                             if euclidean_dist < min_euclidean_dist
                                                 min_dist_indices = [i j];
                                                 min_euclidean_dist = euclidean_dist;
@@ -233,6 +224,9 @@ classdef overset_composite_grid < handle
         % higher grids
 
         for k = 1: obj.n_grids
+            k_interp_point_count = 0; % counts how many points on k-grid are interpolated from other grids
+            k_interp_points = {};
+            k_interp_source_ids = {};
             for i = 1: obj.grids{k}.ny
                 for j = 1: obj.grids{k}.nx
                     kd = obj.grids{k}.flag(i, j);
@@ -262,15 +256,23 @@ classdef overset_composite_grid < handle
                         closest_id = closest_id(1: 4);
                         closest_jd = closest_jd(1: 4);
 
-                        %grids{k}.flag(i, j) = -abs(grids{k}.flag(i, j));
-                        for id = 1: 4
-                            for jd = 1: 4
-                                obj.grids{kd}.flag(closest_id(id), closest_jd(jd)) = -kd;%abs(grids{kd}.flag(closest_id(id), closest_jd(jd)));
-                            end
+                        % negate kd flag at those 4 pts AND store those 4
+                        % pts in correspondence to i j k point for later
+                        % use
+                        k_interp_point_count = k_interp_point_count + 1;
+                        k_interp_points{k_interp_point_count} = [i j];
+                        source_ids = zeros(4, 2);
+                        for l = 1: 4
+                            obj.grids{kd}.flag(closest_id(l), closest_jd(l)) = -kd;
+                            source_ids(l, :) = [closest_id(l) closest_jd(l)];
                         end
+                        k_interp_source_ids{k_interp_point_count} = source_ids;
                     end
                 end
             end
+            obj.grids{k}.interp_point_count = k_interp_point_count;
+            obj.grids{k}.interp_points = k_interp_points;
+            obj.grids{k}.interp_source_ids = k_interp_source_ids;
         end
 
         % STEP 5: Remove unnecessary interpolation points, change them to
@@ -278,6 +280,9 @@ classdef overset_composite_grid < handle
         % interpolation by lower grids
 
         for k = 1: obj.n_grids
+            k_interp_point_count = 0; % counts how many points on k-grid are interpolated from other grids
+            k_interp_points = {};
+            k_interp_source_ids = {};
             for i = 1: obj.grids{k}.ny
                 for j = 1: obj.grids{k}.nx
                     % definition of "not needed": this point could be used by
@@ -318,10 +323,21 @@ classdef overset_composite_grid < handle
                                 end
                             end
 
-        %                     closest = closest(1: 4);
-        %                     closest_id = closest_id(1: 4);
-        %                     closest_jd = closest_jd(1: 4);
-
+                            %closest = closest(1: 4);
+                            closest_id = closest_id(1: 4);
+                            closest_jd = closest_jd(1: 4);
+        
+                            % negate kd flag at those 4 pts AND store those 4
+                            % pts in correspondence to i j k point for later
+                            % use
+                            k_interp_point_count = k_interp_point_count + 1;
+                            k_interp_points{k_interp_point_count} = [i j];
+                            source_ids = zeros(4, 2);
+                            for l = 1: 4
+                                source_ids(l, :) = [closest_id(l) closest_jd(l)];
+                            end
+                            k_interp_source_ids{k_interp_point_count} = source_ids;
+                            
                             obj.grids{k}.flag(i, j) = -abs(obj.grids{k}.flag(i, j));
                             % mark points on upper grids needed for interpolation by lower grid
                             %for id = 1: 4
@@ -335,6 +351,10 @@ classdef overset_composite_grid < handle
                     end
                 end
             end
+            
+            obj.grids{k}.interp_point_count = obj.grids{k}.interp_point_count + k_interp_point_count;
+            obj.grids{k}.interp_points = [obj.grids{k}.interp_points, k_interp_points];
+            obj.grids{k}.interp_source_ids = [obj.grids{k}.interp_source_ids, k_interp_source_ids];
 
             % add code for "if grids{k}.flag(i, j) can be interior point"
 
@@ -361,11 +381,27 @@ classdef overset_composite_grid < handle
             end            
         end
         
-%        function [] = interpolate(obj)
-%            for k = 1: obj.n_grids
-%                
-%            end
-%        end
+        function [] = interpolate(obj)
+            for k = 1: obj.n_grids
+                disp(strcat('overset: interpolating at grid ', obj.grids{k}.name));
+                for i = 1: obj.grids{k}.interp_point_count
+                    interp_point_ids = obj.grids{k}.interp_points(i);
+                    interp_kd = -1 * obj.grids{k}.flag(interp_point_ids{:}(1), interp_point_ids{:}(2));
+                    interp_point = obj.grids{k}.get_global_coords_at(interp_point_ids{:}(1), interp_point_ids{:}(2));
+                    interp_source_ids = obj.grids{k}.interp_source_ids(i);
+                    
+                    source_coords = zeros(4, 2);
+                    source_vals = zeros(4, 1);
+                    for j = 1: 4
+                        source_coords(j, :) = obj.grids{interp_kd}.get_global_coords_at(interp_source_ids{:}(j, 1), interp_source_ids{:}(j, 2));
+                        source_vals(j) = obj.grids{interp_kd}.val(interp_source_ids{:}(j, 1), interp_source_ids{:}(j, 2));
+                    end
+                    
+                    interp_val = griddata(source_coords(:, 2), source_coords(:, 1), source_vals, interp_point(2), interp_point(1), 'linear');
+                    obj.grids{k}.val(interp_point_ids{:}(1), interp_point_ids{:}(2)) = interp_val;
+                end
+            end
+        end
         
     end
 end

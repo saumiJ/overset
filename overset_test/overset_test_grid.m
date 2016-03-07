@@ -49,8 +49,12 @@ else if n_grids == 3
 end
 
 oCG = overset_composite_grid('T_comp', grids);
+
+oCG.interpolate();
+
 fig_grid = figure();
 oCG.display_grid(fig_grid);
+
 
 isWorking = 1;
 end
