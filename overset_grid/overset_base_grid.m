@@ -73,8 +73,56 @@ classdef overset_base_grid < overset_grid
             data = zeros(1, obj.ny * obj.nx);
             
             k = 1;
-            for i = 1: obj.ny
-                for j = 1: obj.nx
+            for i = 2: obj.ny-1
+                for j = 2: obj.nx-1
+                    if ~obj.isVoidBoundary(i, j) && obj.flag(i, j) == obj.id+1
+                    %if ~obj.isVoidBoundary(i, j) && obj.flag(i, j) ~= 0
+                        y(1, k) = obj.grid_coords(i, j, 1);
+                        x(1, k) = obj.grid_coords(i, j, 2);
+                        data(1, k) = obj.val(i, j);
+                        k = k + 1;
+                    end
+                end
+            end
+            
+            for i = 1
+                for j = 2: obj.nx-1
+                    if ~obj.isVoidBoundary(i, j) && obj.flag(i, j) == obj.id+1
+                    %if ~obj.isVoidBoundary(i, j) && obj.flag(i, j) ~= 0
+                        y(1, k) = obj.grid_coords(i, j, 1);
+                        x(1, k) = obj.grid_coords(i, j, 2);
+                        data(1, k) = obj.val(i, j);
+                        k = k + 1;
+                    end
+                end
+            end
+            
+            for i = obj.ny
+                for j = 2: obj.nx-1
+                    if ~obj.isVoidBoundary(i, j) && obj.flag(i, j) == obj.id+1
+                    %if ~obj.isVoidBoundary(i, j) && obj.flag(i, j) ~= 0
+                        y(1, k) = obj.grid_coords(i, j, 1);
+                        x(1, k) = obj.grid_coords(i, j, 2);
+                        data(1, k) = obj.val(i, j);
+                        k = k + 1;
+                    end
+                end
+            end
+            
+            for i = 2: obj.ny-1
+                for j = 1
+                    if ~obj.isVoidBoundary(i, j) && obj.flag(i, j) == obj.id+1
+                    %if ~obj.isVoidBoundary(i, j) && obj.flag(i, j) ~= 0
+                        y(1, k) = obj.grid_coords(i, j, 1);
+                        x(1, k) = obj.grid_coords(i, j, 2);
+                        data(1, k) = obj.val(i, j);
+                        k = k + 1;
+                    end
+                end
+            end
+            
+            for i = 2: obj.ny-1
+                for j = obj.nx
                     if ~obj.isVoidBoundary(i, j) && obj.flag(i, j) == obj.id+1
                     %if ~obj.isVoidBoundary(i, j) && obj.flag(i, j) ~= 0
                         y(1, k) = obj.grid_coords(i, j, 1);
@@ -86,7 +134,7 @@ classdef overset_base_grid < overset_grid
             end
             
             disp(strcat('overset: printing data on base grid ', obj.name));
-            scatter3(x, y, data, 20, data, 'filled');
+            scatter3(x, y, data, 40, data, 'filled');
             
             hold off
         end

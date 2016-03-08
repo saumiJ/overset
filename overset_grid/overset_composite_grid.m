@@ -430,6 +430,7 @@ classdef overset_composite_grid < handle
         
         % display grid
         function [] = display_grid(obj, fig)
+            clf(fig);
             disp(strcat('overset: printing composite grid ', obj.name));
             for k = 1: obj.n_grids
                 obj.grids{k}.display_grid(fig);
@@ -438,10 +439,12 @@ classdef overset_composite_grid < handle
         
         % display data
         function [] = display_data(obj, fig)
+            clf(fig);
             disp(strcat('overset: printing data on composite grid ', obj.name));
             for k = 1: obj.n_grids
                 obj.grids{k}.display_data(fig);
             end
+            view(3);
         end
         
     end

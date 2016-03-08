@@ -113,9 +113,9 @@ classdef overset_sub_grid < overset_grid
             
             disp(strcat('overset: printing data on sub grid ', obj.name));
             if (obj.id == 1)
-                scatter3(x, y, data, 20, data, 'o');
+                scatter3(x, y, data, 40, data, 'o', 'filled');
             else
-                scatter3(x, y, data, 20, data, '+');
+                scatter3(x, y, data, 40, data, '+', 'filled');
             end
             
             hold off

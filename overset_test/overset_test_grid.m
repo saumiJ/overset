@@ -18,8 +18,10 @@ sg1_angle_init = pi/6;
 sg1_number_of_voids = 1;
 sg1_list_voidBoundaryPointList = cell(1, sg1_number_of_voids);
 for k = 1: sg1_number_of_voids
-    sg1_list_voidBoundaryPointList{k} = [6 6 6 6 6  6  7  8  9  10 11 11 11 11 11 11 10 9 8 7;...
-                                         6 7 8 9 10 11 11 11 11 11 11 10 9  8  7  6  6  6 6 6];
+    %sg1_list_voidBoundaryPointList{k} = [6 6 6 6 6  6  7  8  9  10 11 11 11 11 11 11 10 9 8 7;...
+    %                                     6 7 8 9 10 11 11 11 11 11 11 10 9  8  7  6  6  6 6 6];
+    sg1_list_voidBoundaryPointList{k} = [7 7 7  7  8  9 10 10 10 10 9 8;...
+                                         7 8 9 10 10 10 10  9  8  7 7 7];
 end
 
 % sub-grid-2 params
@@ -52,26 +54,28 @@ else if n_grids == 3
 end
 
 % create composite grid
-overlap = 1;
+overlap = 2;
 oCG = overset_composite_grid('T_comp', grids, overlap);
 
 % interpolate values
 oCG.interpolate();
 
-% plot grid
-fig_grid = figure();
-oCG.display_grid(fig_grid);
-
-% print data
-fig_data = figure();
-
 % solve poisson problem!
-T_vector = [100 300];
+T_vector = [100  300];
 isOuterNeumann = true;
-n_iter = 15;
-oCG = overset_steady_poisson_problem(oCG, T_vector, isOuterNeumann, n_iter);
+n_iter_inner = 10;
+sub_grid_rotation_speed = pi/12; % radians per second
+simulation_time = 10; % seconds
+dt = 0.1; % seconds
+alpha = 1e3; % W/m2K
+plot_interval = dt;
+isPlotSaved = true;
 
-oCG.display_data(fig_data);
+oCG = overset_transient_poisson_problem(oCG, T_vector, isOuterNeumann, n_iter_inner, simulation_time, dt, alpha, sub_grid_rotation_speed, plot_interval, isPlotSaved);
+
+%oCG = overset_steady_poisson_problem(oCG, T_vector, isOuterNeumann, n_iter_inner);
+
+%oCG.display_data(fig_data);
 
 isWorking = 1;
 end

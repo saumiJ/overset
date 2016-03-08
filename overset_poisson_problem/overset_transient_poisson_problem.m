@@ -1,23 +1,86 @@
-function oCG = overset_steady_poisson_problem(oCG, T_vector, isOuterNeumann, n_iter)
-% 2D steady-state poisson problem over an overset composite grid
-A = construct_poisson_matrices(oCG, isOuterNeumann);
-b = construct_right_hand_sides(oCG, isOuterNeumann, T_vector);
+function oCG = overset_transient_poisson_problem(oCG, T_vector, isOuterNeumann, n_iter_inner, simulation_time, dt, alpha, sub_grid_rotation_speed, plot_interval, isPlotSaved)
+% 2D transient poisson problem over an overset composite grid
 
-for iter = 1: n_iter
-    disp (strcat('overset: SOLVER iterartion: ', num2str(iter)));
-    T_sol = solve(A, b);
-    oCG = map_results_to_grid(oCG, T_sol);
+% figures for grid and data
+fig_grid = figure();
+fig_data = figure();
+img_grid = 1;
+img_data = 1;
+
+disp 'overset: printing initial data'
+oCG.display_data(fig_data);
+if isPlotSaved
+    set(gcf, 'PaperUnits', 'inches', 'PaperPosition', [0 0 7 7]);
+    saveas(figure(fig_data), strcat('data', num2str(img_data), '.png'));
+    img_data = img_data + 1;
+end
+oCG.display_grid(fig_grid);
+if isPlotSaved
+    set(gcf, 'PaperUnits', 'inches', 'PaperPosition', [0 0 7 7]);
+    saveas(figure(fig_grid), strcat('grid', num2str(img_grid), '.png'));
+    img_grid = img_grid + 1;
+end
+
+pause
+
+for t = 0: dt: simulation_time
+    
+    disp (strcat('overset: SOLVER time iterartion: ', num2str(t)));
+    
+    oCG_old_val = cell(oCG.n_grids, 1);
+    for k = 1: oCG.n_grids
+        oCG_old_val{k} = oCG.grids{k}.val;
+    end
+        
+    % construct A and b
+    A = construct_poisson_matrices(oCG, isOuterNeumann, alpha, dt);
+    b = construct_right_hand_sides(oCG, oCG_old_val, isOuterNeumann, T_vector);
+    
+    % solve system at time t
+    for iter = 1: n_iter_inner
+        disp (strcat('overset: SOLVER inner iterartion: ', num2str(iter)));
+        T_sol = solve(A, b);
+        oCG = map_results_to_grid(oCG, T_sol);
+        oCG.interpolate();
+        b = construct_right_hand_sides(oCG, oCG_old_val, true, T_vector);
+    end
+    
+    if mod(t, plot_interval) == 0
+        oCG.display_data(fig_data);
+        if isPlotSaved
+            set(gcf, 'PaperUnits', 'inches', 'PaperPosition', [0 0 7 7]);
+            saveas(figure(fig_data), strcat('data', num2str(img_data), '.png'));
+            img_data = img_data + 1;
+        end
+    end
+
+    % rotate grid
+    for k = 2: oCG.n_grids
+        oCG.grids{k}.global_angle = oCG.grids{k}.global_angle + dt * sub_grid_rotation_speed;
+    end
+    
+    % recompute composite grid
+    oCG.construct_composite_grid()
+    
+    if mod(t, plot_interval) == 0
+        oCG.display_grid(fig_grid);
+        if isPlotSaved
+            set(gcf, 'PaperUnits', 'inches', 'PaperPosition', [0 0 7 7]);
+            saveas(figure(fig_grid), strcat('grid', num2str(img_grid), '.png'));
+            img_grid = img_grid + 1;
+        end
+    end
+    
+    % interpolate values
     oCG.interpolate();
-    b = construct_right_hand_sides(oCG, true, T_vector);
+end
 end
 
-end
-
-function A = construct_poisson_matrices(oCG, isOuterNeumann)
+function A = construct_poisson_matrices(oCG, isOuterNeumann, alpha, dt)
 % function to construct the solution matrices for the Poisson problem on oCG
 
 % TODO: correct the isOuterNeumann case!
-disp 'overset: constructing A-matrices for poisson problem'
+%disp 'overset: constructing A-matrices for poisson problem'
 
 A = cell(oCG.n_grids, 1);
 
@@ -72,7 +135,7 @@ end
 for l = 2: 2: 2*(nx-2)
     i_holder(l-1) = l2Tol1(l);
     j_holder(l-1) = l2Tol1(l);
-    a_holder(l-1) = l2Tol1(l);
+    a_holder(l-1) = 1;
     
     if isOuterNeumann
         i_holder(l) = l2Tol1(l);
@@ -204,11 +267,11 @@ for i = 2: ny-1
                     (i-0) * nx + j;
                     ];
                 a_holder = [
-                    2 * (dx^2 + dy^2)
-                    -dx^2
-                    -dx^2
-                    -dy^2
-                    -dy^2
+                    1 + 2*alpha*dt*(1/dx^2 + 1/dy^2)
+                    -alpha*dt/dx^2
+                    -alpha*dt/dx^2
+                    -alpha*dt/dy^2
+                    -alpha*dt/dy^2
                     ];
                 for l = 1: length(a_holder)
                         i_sp(ctr) = i_holder(l);
@@ -275,11 +338,11 @@ for k = 2: oCG.n_grids
                             (i-0) * nx + j;
                             ];
                         a_holder = [
-                            2 * (dx^2 + dy^2)
-                            -dx^2
-                            -dx^2
-                            -dy^2
-                            -dy^2
+                            1 + 2*alpha*dt*(1/dx^2 + 1/dy^2)
+                            -alpha*dt/dx^2
+                            -alpha*dt/dx^2
+                            -alpha*dt/dy^2
+                            -alpha*dt/dy^2
                             ];
                         for l = 1: length(a_holder)
                                 i_sp(ctr) = i_holder(l);
@@ -301,10 +364,10 @@ end
 
 end
 
-function b = construct_right_hand_sides(oCG, isOuterNeumann, T_vector)
+function b = construct_right_hand_sides(oCG, oCG_old_val, isOuterNeumann, T_vector)
 % function to compute RHS vectors
 
-disp 'overset: constructing RHS for poisson problem'
+%disp 'overset: constructing RHS for poisson problem'
 
 b = cell(oCG.n_grids, 1);
 
@@ -412,9 +475,9 @@ for i = 2: ny-1
         ind = (i-1) * nx + j;
         switch oCG.grids{k}.flag(i, j)
             case 0
-                b{k}(ind) = 0;
+                b{k}(ind) = oCG.grids{k}.val(i, j); % default void value
             case k
-                b{k}(ind) = 0;
+                b{k}(ind) = oCG_old_val{k}(i, j); % implicit discretization
             otherwise
                 b{k}(ind) = oCG.grids{k}.val(i, j); % interpolated val
         end
@@ -441,9 +504,14 @@ for k = 2: oCG.n_grids
                     b{k}(ind) = oCG.grids{k}.val(i, j); % default void value
                 case k
                     if oCG.grids{k}.isVoidBoundary(i, j)
-                        b{k}(ind) = T_vector(2); % inner temperature
+                        if j == 10
+                            b{k}(ind) = 100; % inner temperature
+                        else
+                            b{k}(ind) = T_vector(2); % inner temperature
+                        end
+                        
                     else
-                        b{k}(ind) = 0;
+                        b{k}(ind) = oCG_old_val{k}(i, j); % implicit disretization
                     end
                 otherwise
                     b{k}(ind) = oCG.grids{k}.val(i, j); % interpolated val
@@ -456,7 +524,7 @@ end
 function oCG = map_results_to_grid(oCG, T_sol)
 % maps result back to composite grid
 
-disp 'overset: mapping results to composite grid'
+%disp 'overset: mapping results to composite grid'
 
 for k = 1: oCG.n_grids
     for i = 1: oCG.grids{k}.ny
@@ -470,7 +538,7 @@ end
 
 function T_sol = solve(A, b)
 
-disp 'overset: solving..'
+%disp 'overset: solving..'
 
 % function to solve on all grids
 
