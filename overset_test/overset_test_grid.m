@@ -26,8 +26,8 @@ end
 sg2_id = 2;
 sg2_nx = 8; sg2_ny = 8;
 sg2_dx = 1; sg2_dy = 1;
-sg2_center_init = [8 8];
-sg2_angle_init = 2*pi/6;
+sg2_center_init = [10 10];
+sg2_angle_init = 3*pi/8;
 
 % create base- and sub-grids
 oBG = overset_base_grid('T_b', bg_id, bg_nx, bg_ny, bg_dx, bg_dy, {});
@@ -64,6 +64,13 @@ oCG.display_grid(fig_grid);
 
 % print data
 fig_data = figure();
+
+% solve poisson problem!
+T_vector = [100 300];
+isOuterNeumann = true;
+n_iter = 15;
+oCG = overset_steady_poisson_problem(oCG, T_vector, isOuterNeumann, n_iter);
+
 oCG.display_data(fig_data);
 
 isWorking = 1;

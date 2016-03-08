@@ -52,7 +52,6 @@ classdef overset_grid < handle
             
             for i = 1: obj.ny
                 for j = 1: obj.nx
-                    obj.val(i, j) = i+j;
                     obj.grid_coords(i, j, 1) = (i-1)*obj.dy;
                     obj.grid_coords(i, j, 2) = (j-1)*obj.dx;
                 end
