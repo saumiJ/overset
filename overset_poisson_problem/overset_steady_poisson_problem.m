@@ -1,23 +1,39 @@
-function oCG = overset_steady_poisson_problem(oCG, T_vector, isOuterNeumann, n_iter)
+function oCG = overset_steady_poisson_problem(oCG, T_vector, isOuterNeumann, n_iter, isPlotSaved, problemName)
 % 2D steady-state poisson problem over an overset composite grid
+
+disp '--------------------------------'
+disp 'overset transient poisson solver'
+disp '--------------------------------'
+
 A = construct_poisson_matrices(oCG, isOuterNeumann);
 b = construct_right_hand_sides(oCG, isOuterNeumann, T_vector);
 
+fig_grid = figure();
+fig_data = figure();
+
 for iter = 1: n_iter
-    disp (strcat('overset: SOLVER iterartion: ', num2str(iter)));
+    disp (strcat('overset: solver | -> iterartion: ', num2str(iter)));
     T_sol = solve(A, b);
     oCG = map_results_to_grid(oCG, T_sol);
     oCG.interpolate();
     b = construct_right_hand_sides(oCG, true, T_vector);
 end
 
+oCG.display_data(fig_data);
+if isPlotSaved
+    set(gcf, 'PaperUnits', 'inches', 'PaperPosition', [0 0 7 7]);
+    saveas(figure(fig_data), strcat(problemName, '_data.tiff'));
+end
+oCG.display_grid(fig_grid);
+if isPlotSaved
+    set(gcf, 'PaperUnits', 'inches', 'PaperPosition', [0 0 7 7]);
+    saveas(figure(fig_grid), strcat(problemName, '_grid.tiff'));
+end
+
 end
 
 function A = construct_poisson_matrices(oCG, isOuterNeumann)
 % function to construct the solution matrices for the Poisson problem on oCG
-
-% TODO: correct the isOuterNeumann case!
-disp 'overset: constructing A-matrices for poisson problem'
 
 A = cell(oCG.n_grids, 1);
 
@@ -60,27 +76,31 @@ end
 % ---------------------
 % fill lower row
 % ---------------------
+i_holder = zeros(1, 2*(nx-2));
+j_holder = zeros(1, 2*(nx-2));
+a_holder = zeros(1, 2*(nx-2));
+lim = 0;
 if isOuterNeumann
-    i_holder = zeros(1, 2*(nx-2));
-    j_holder = zeros(1, 2*(nx-2));
-    a_holder = zeros(1, 2*(nx-2));
-else
-    i_holder = zeros(1, 1*(nx-2));
-    j_holder = zeros(1, 1*(nx-2));
-    a_holder = zeros(1, 1*(nx-2));
-end
-for l = 2: 2: 2*(nx-2)
-    i_holder(l-1) = l2Tol1(l);
-    j_holder(l-1) = l2Tol1(l);
-    a_holder(l-1) = l2Tol1(l);
-    
-    if isOuterNeumann
+    lim = lim + 2*(nx-2);
+    for l = 2: 2: 2*(nx-2)
+        i_holder(l-1) = l2Tol1(l);
+        j_holder(l-1) = l2Tol1(l);
+        a_holder(l-1) = 1;
+        
         i_holder(l) = l2Tol1(l);
         j_holder(l) = l2Tol1(l) + nx;
         a_holder(l) = -1;
     end
+else
+    lim = lim + (nx-2);
+    for l = 2: (nx-1)
+        i_holder(l-1) = l;
+        j_holder(l-1) = l;
+        a_holder(l-1) = 1;
+    end
 end
-for l = 1: length(a_holder)
+
+for l = 1: lim
     i_sp(ctr) = i_holder(l);
     j_sp(ctr) = j_holder(l);
     a_sp(ctr) = a_holder(l);
@@ -90,27 +110,31 @@ end
 % ---------------------
 % fill upper row
 % ---------------------
+i_holder = zeros(1, 2*(nx-2));
+j_holder = zeros(1, 2*(nx-2));
+a_holder = zeros(1, 2*(nx-2));
+lim = 0;
 if isOuterNeumann
-    i_holder = zeros(1, 2*(nx-2));
-    j_holder = zeros(1, 2*(nx-2));
-    a_holder = zeros(1, 2*(nx-2));
-else
-    i_holder = zeros(1, 1*(nx-2));
-    j_holder = zeros(1, 1*(nx-2));
-    a_holder = zeros(1, 1*(nx-2));
-end
-for l = 2: 2: 2*(nx-2)
-    i_holder(l-1) = l2Tol1(l) + (ny - 1) * nx;
-    j_holder(l-1) = l2Tol1(l) + (ny - 1) * nx;
-    a_holder(l-1) = 1;
-    
-    if isOuterNeumann
+    lim = lim + 2*(nx-2);
+    for l = 2: 2: 2*(nx-2)
+        i_holder(l-1) = l2Tol1(l) + (ny - 1) * nx;
+        j_holder(l-1) = l2Tol1(l) + (ny - 1) * nx;
+        a_holder(l-1) = 1;
+
         i_holder(l) = l2Tol1(l) + (ny - 1) * nx;
         j_holder(l) = l2Tol1(l) + (ny - 2) * nx;
         a_holder(l) = -1;
     end
+else
+    lim = lim + nx-2;
+    for l = 2: nx-1
+        i_holder(l-1) = l + (ny - 1) * nx;
+        j_holder(l-1) = l + (ny - 1) * nx;
+        a_holder(l-1) = 1;
+    end
 end
-for l = 1: length(a_holder)
+
+for l = 1: lim
     i_sp(ctr) = i_holder(l);
     j_sp(ctr) = j_holder(l);
     a_sp(ctr) = a_holder(l);
@@ -120,27 +144,31 @@ end
 % ---------------------
 % fill left row
 % ---------------------
+i_holder = zeros(1, 2*(ny-2));
+j_holder = zeros(1, 2*(ny-2));
+a_holder = zeros(1, 2*(ny-2));
+lim = 0;
 if isOuterNeumann
-    i_holder = zeros(1, 2*(ny-2));
-    j_holder = zeros(1, 2*(ny-2));
-    a_holder = zeros(1, 2*(ny-2));
-else
-    i_holder = zeros(1, 1*(ny-2));
-    j_holder = zeros(1, 1*(ny-2));
-    a_holder = zeros(1, 1*(ny-2));
-end
-for l = 2: 2: 2*(ny-2)
-    i_holder(l-1) = 1 + (l2Tol1(l) -1) * nx;
-    j_holder(l-1) = 1 + (l2Tol1(l) -1) * nx;
-    a_holder(l-1) = 1;
-    
-    if isOuterNeumann
+    lim = lim + 2*(ny-2);
+    for l = 2: 2: 2*(ny-2)
+        i_holder(l-1) = 1 + (l2Tol1(l) -1) * nx;
+        j_holder(l-1) = 1 + (l2Tol1(l) -1) * nx;
+        a_holder(l-1) = 1;
+        
         i_holder(l) = 1 + (l2Tol1(l) -1) * nx;
         j_holder(l) = 1 + (l2Tol1(l) -1) * nx + 1;
         a_holder(l) = -1;
     end
+else
+    lim = lim + ny-2;
+    for l = 2: ny-1
+        i_holder(l-1) = 1 + (l -1) * nx;
+        j_holder(l-1) = 1 + (l -1) * nx;
+        a_holder(l-1) = 1;
+    end
 end
-for l = 1: length(a_holder)
+
+for l = 1: lim
     i_sp(ctr) = i_holder(l);
     j_sp(ctr) = j_holder(l);
     a_sp(ctr) = a_holder(l);
@@ -150,27 +178,31 @@ end
 % ---------------------
 % fill right row
 % ---------------------
+i_holder = zeros(1, 2*(ny-2));
+j_holder = zeros(1, 2*(ny-2));
+a_holder = zeros(1, 2*(ny-2));
+lim = 0;
 if isOuterNeumann
-    i_holder = zeros(1, 2*(ny-2));
-    j_holder = zeros(1, 2*(ny-2));
-    a_holder = zeros(1, 2*(ny-2));
-else
-    i_holder = zeros(1, 1*(ny-2));
-    j_holder = zeros(1, 1*(ny-2));
-    a_holder = zeros(1, 1*(ny-2));
-end
-for l = 2: 2: 2*(ny-2)
-    i_holder(l-1) = l2Tol1(l) * nx;
-    j_holder(l-1) = l2Tol1(l) * nx;
-    a_holder(l-1) = 1;
-    
-    if isOuterNeumann
+    lim = lim + 2*(ny-2);
+    for l = 2: 2: 2*(ny-2)
+        i_holder(l-1) = l2Tol1(l) * nx;
+        j_holder(l-1) = l2Tol1(l) * nx;
+        a_holder(l-1) = 1;
+
         i_holder(l) = l2Tol1(l) * nx;
         j_holder(l) = l2Tol1(l) * nx - 1;
         a_holder(l) = -1;
     end
+else
+    lim = lim + ny-2;
+    for l = 2: ny-1
+        i_holder(l-1) = l * nx;
+        j_holder(l-1) = l * nx;
+        a_holder(l-1) = 1;
+    end
 end
-for l = 1: length(a_holder)
+
+for l = 1: lim
     i_sp(ctr) = i_holder(l);
     j_sp(ctr) = j_holder(l);
     a_sp(ctr) = a_holder(l);
@@ -303,8 +335,6 @@ end
 
 function b = construct_right_hand_sides(oCG, isOuterNeumann, T_vector)
 % function to compute RHS vectors
-
-disp 'overset: constructing RHS for poisson problem'
 
 b = cell(oCG.n_grids, 1);
 
@@ -455,8 +485,6 @@ end
 
 function oCG = map_results_to_grid(oCG, T_sol)
 % maps result back to composite grid
-
-disp 'overset: mapping results to composite grid'
 
 for k = 1: oCG.n_grids
     for i = 1: oCG.grids{k}.ny

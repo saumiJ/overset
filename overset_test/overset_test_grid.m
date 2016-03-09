@@ -63,19 +63,18 @@ oCG.interpolate();
 % solve poisson problem!
 T_vector = [100  300];
 isOuterNeumann = true;
-n_iter_inner = 10;
+n_iter_inner = 8;
 sub_grid_rotation_speed = pi/12; % radians per second
-simulation_time = 10; % seconds
+simulation_time = 2*pi/sub_grid_rotation_speed + 1; % seconds
 dt = 0.1; % seconds
-alpha = 1e3; % W/m2K
+alpha = 0.5e3; % W/m2K
 plot_interval = dt;
 isPlotSaved = true;
+isPlotVisible = false;
 
-oCG = overset_transient_poisson_problem(oCG, T_vector, isOuterNeumann, n_iter_inner, simulation_time, dt, alpha, sub_grid_rotation_speed, plot_interval, isPlotSaved);
+oCG = overset_transient_poisson_problem(oCG, T_vector, isOuterNeumann, n_iter_inner, simulation_time, dt, alpha, sub_grid_rotation_speed, plot_interval, isPlotSaved, isPlotVisible, 'overset_trns');
 
-%oCG = overset_steady_poisson_problem(oCG, T_vector, isOuterNeumann, n_iter_inner);
-
-%oCG.display_data(fig_data);
+%oCG = overset_steady_poisson_problem(oCG, T_vector, isOuterNeumann, n_iter_inner, isPlotSaved, 'overset_sts');
 
 isWorking = 1;
 end

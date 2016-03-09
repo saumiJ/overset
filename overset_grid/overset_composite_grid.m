@@ -13,18 +13,16 @@ classdef overset_composite_grid < handle
     end
     
     methods
+        % TODO:
+        % - add method to allow full interpolation on sub-grids,
+        %   needed at the end of a time-step for transient simulations
+        
         % constructor
         function obj = overset_composite_grid(name_, grids_, overlap_)
             if length(grids_) < 2
                 disp 'ERROR: At least two grids needed to construct a composite grid!'
                 exit(1)
             end
-            
-            gridNames = '';
-            for k = 1: length(grids_)
-                gridNames = strcat(gridNames, grids_{k}.name, ',');
-            end
-            disp(strcat('overset: constructing composite grid ', name_, ' from grids: ', gridNames));
             
             obj.name = name_;
             obj.grids = grids_;
@@ -36,6 +34,12 @@ classdef overset_composite_grid < handle
         
         % create grid associations and cuts
         function [] = construct_composite_grid(obj)
+            gridNames = '';
+            for k = 1: length(obj.n_grids)
+                gridNames = strcat(gridNames, obj.grids{k}.name, ',');
+            end
+            disp(strcat('overset: constructing composite grid: ', obj.name, ' from grids: ', gridNames));
+            
             % constructs composite grid from 'grids'
             % note: 'grids' must be arranged such that the farthest one will be the
             % topmost, i.e. it will not undergo cell removal (unless points lie outside
@@ -407,7 +411,6 @@ classdef overset_composite_grid < handle
         % compute interpolated values at grids
         function [] = interpolate(obj)
             for k = 1: obj.n_grids
-                disp(strcat('overset: interpolating at grid ', obj.grids{k}.name));
                 for i = 1: obj.grids{k}.interp_point_count
                     interp_point_ids = obj.grids{k}.interp_points(i);
                     interp_kd = -1 * obj.grids{k}.flag(interp_point_ids{:}(1), interp_point_ids{:}(2));
@@ -429,20 +432,18 @@ classdef overset_composite_grid < handle
         end
         
         % display grid
-        function [] = display_grid(obj, fig)
+        function [] = display_grid(obj, fig, isPlotVisible)
             clf(fig);
-            disp(strcat('overset: printing composite grid ', obj.name));
             for k = 1: obj.n_grids
-                obj.grids{k}.display_grid(fig);
+                obj.grids{k}.display_grid(fig, isPlotVisible);
             end
         end
         
         % display data
-        function [] = display_data(obj, fig)
+        function [] = display_data(obj, fig, isPlotVisible)
             clf(fig);
-            disp(strcat('overset: printing data on composite grid ', obj.name));
             for k = 1: obj.n_grids
-                obj.grids{k}.display_data(fig);
+                obj.grids{k}.display_data(fig, isPlotVisible);
             end
             view(3);
         end

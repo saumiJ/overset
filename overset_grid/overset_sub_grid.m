@@ -24,7 +24,7 @@ classdef overset_sub_grid < overset_grid
                 sg1_list_voidBoundaryPointList_, ...
                 center_init_, ...
                 angle_init_)
-            disp(strcat('overset: constructing sub grid ', name_));
+            disp(strcat('overset: constructing sub grid: ', name_));
             % call base-class constructor
             obj@overset_grid(name_, id_, nx_, ny_, dx_, dy_, sg1_list_voidBoundaryPointList_);
             obj.global_loc_of_center = center_init_;
@@ -64,8 +64,13 @@ classdef overset_sub_grid < overset_grid
         end
         
         % plots the grid on figure fig
-        function fig = display_grid(obj, fig)
-            figure(fig);
+        function fig = display_grid(obj, fig, isPlotVisible)
+            if isPlotVisible
+                figure(fig);
+            else
+                set(groot,'CurrentFigure',fig);
+            end
+            
             hold on
             y = zeros(1, obj.nx*obj.ny);
             x = zeros(1, obj.nx*obj.ny);
@@ -83,14 +88,18 @@ classdef overset_sub_grid < overset_grid
                 end
             end
             
-            disp(strcat('overset: printing sub grid ', obj.name));
             scatter(x, y, 12);
             hold off;
         end
         
         % displays data as a contour on figure fig
-        function [] = display_data(obj, fig)
-            figure(fig);
+        function [] = display_data(obj, fig, isPlotVisible)
+            if isPlotVisible
+                figure(fig);
+            else
+                set(groot,'CurrentFigure',fig);
+            end
+            
             hold on
             y = zeros(1, obj.ny * obj.nx);
             x = zeros(1, obj.ny * obj.nx);
@@ -111,12 +120,7 @@ classdef overset_sub_grid < overset_grid
                 end
             end
             
-            disp(strcat('overset: printing data on sub grid ', obj.name));
-            if (obj.id == 1)
-                scatter3(x, y, data, 40, data, 'o', 'filled');
-            else
-                scatter3(x, y, data, 40, data, '+', 'filled');
-            end
+            scatter3(x(1: l-1), y(1: l-1), data(1: l-1), 40, data(1: l-1), 'o', 'filled');
             
             hold off
         end
