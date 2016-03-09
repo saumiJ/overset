@@ -1,9 +1,9 @@
 function oCG = overset_steady_poisson_problem(oCG, T_vector, isOuterNeumann, n_iter, isPlotSaved, problemName)
 % 2D steady-state poisson problem over an overset composite grid
 
-disp '--------------------------------'
-disp 'overset transient poisson solver'
-disp '--------------------------------'
+disp '-----------------------------------'
+disp 'overset steady-state poisson solver'
+disp '-----------------------------------'
 
 A = construct_poisson_matrices(oCG, isOuterNeumann);
 b = construct_right_hand_sides(oCG, isOuterNeumann, T_vector);
